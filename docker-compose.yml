@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: segmentation-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: segpassword123
+      MYSQL_DATABASE: segmentation
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-psegpassword123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: segmentation-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: segmentation-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=segmentation2024
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=UTC
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n-workflow.json:/home/node/workflows/segmentation-workflow.json
+    depends_on:
+      api:
+        condition: service_healthy
+
+  frontend:
+    image: nginx:alpine
+    container_name: segmentation-frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+volumes:
+  n8n_data:
+  mysql_data:

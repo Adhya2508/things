@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bank Segmentation Assistant</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f1117; color: #e1e4e8; height: 100vh; display: flex; flex-direction: column; }
+    .header { background: linear-gradient(135deg, #1a1f36 0%, #0d1117 100%); border-bottom: 1px solid #21262d; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .header h1 { font-size: 18px; font-weight: 600; color: #f0f6fc; }
+    .header .subtitle { color: #8b949e; font-size: 12px; margin-top: 2px; }
+    .header .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b949e; }
+    .header .status .dot { width: 8px; height: 8px; border-radius: 50%; background: #f85149; }
+    .header .status .dot.ok { background: #3fb950; }
+    .chat-container { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .chat-container::-webkit-scrollbar { width: 6px; }
+    .chat-container::-webkit-scrollbar-track { background: transparent; }
+    .chat-container::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    .message { max-width: 75%; padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .message.user { align-self: flex-end; background: #1f6feb; color: #fff; border-bottom-right-radius: 4px; }
+    .message.assistant { align-self: flex-start; background: #161b22; border: 1px solid #21262d; color: #c9d1d9; border-bottom-left-radius: 4px; }
+    .message.assistant pre { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px; margin-top: 8px; overflow-x: auto; font-size: 12px; font-family: 'SF Mono', monospace; }
+    .message.assistant code { font-family: 'SF Mono', monospace; font-size: 13px; }
+    .message.assistant table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    .message.assistant th, .message.assistant td { padding: 6px 10px; border: 1px solid #21262d; text-align: left; }
+    .message.assistant th { background: #0d1117; color: #8b949e; font-weight: 500; }
+    .typing { display: flex; gap: 4px; padding: 12px 16px; }
+    .typing span { width: 6px; height: 6px; background: #484f58; border-radius: 50%; animation: bounce 1.4s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+    .input-bar { border-top: 1px solid #21262d; padding: 16px 24px; display: flex; gap: 12px; background: #161b22; flex-shrink: 0; }
+    .input-bar input { flex: 1; padding: 12px 16px; border: 1px solid #30363d; border-radius: 8px; background: #0d1117; color: #e1e4e8; font-size: 14px; outline: none; transition: border-color 0.15s; }
+    .input-bar input:focus { border-color: #58a6ff; }
+    .input-bar input::placeholder { color: #484f58; }
+    .input-bar button { padding: 12px 24px; border: none; border-radius: 8px; background: #238636; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+    .input-bar button:hover { background: #2ea043; }
+    .input-bar button:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+    .suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .suggestion { padding: 6px 12px; border: 1px solid #30363d; border-radius: 16px; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .suggestion:hover { border-color: #58a6ff; color: #58a6ff; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>Bank Segmentation Assistant</h1>
+      <div class="subtitle">AI-Powered Customer Analytics</div>
+    </div>
+    <div class="status">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Checking API...</span>
+    </div>
+  </div>
+
+  <div class="chat-container" id="chat">
+    <div class="message assistant">
+      Hello! I'm your Bank Customer Segmentation assistant. I can help you:
+      <div class="suggestions">
+        <button class="suggestion" onclick="sendSuggestion('Segment customers using rule mode')">Segment customers (rule)</button>
+        <button class="suggestion" onclick="sendSuggestion('Segment customers using ML mode')">Segment customers (ML)</button>
+        <button class="suggestion" onclick="sendSuggestion('Run EDA on the dataset')">Run EDA</button>
+      </div>
+      <br>Try asking me something like:
+      <br>• "Segment customers using rule mode for session demo1"
+      <br>• "Why was customer C10001 put in Priority?"
+      <br>• "What's the average transaction size across segments?"
+      <br>• "Which regular customers can become priority?"
+      <br>• "Give me retention recommendations for Dormant customers"
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <input type="text" id="user-input" placeholder="Ask about customer segmentation..." onkeypress="if(event.key==='Enter')sendMessage()">
+    <button id="send-btn" onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const N8N_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5678'
+      : `http://${window.location.hostname}:5678`;
+    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8000'
+      : `http://${window.location.hostname}:8000`;
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    async function checkHealth() {
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      try {
+        const r = await fetch(`${API_URL}/health`);
+        if (r.ok) { dot.classList.add('ok'); text.textContent = 'API Online'; }
+        else { dot.classList.remove('ok'); text.textContent = 'API Error'; }
+      } catch {
+        dot.classList.remove('ok'); text.textContent = 'API Offline';
+      }
+    }
+
+    function addMessage(text, role) {
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.innerHTML = formatMarkdown(text);
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    function addTyping() {
+      const div = document.createElement('div');
+      div.className = 'message assistant';
+      div.id = 'typing-indicator';
+      div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    function removeTyping() {
+      const el = document.getElementById('typing-indicator');
+      if (el) el.remove();
+    }
+
+    function formatMarkdown(text) {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function sendSuggestion(text) {
+      input.value = text;
+      sendMessage();
+    }
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage(text, 'user');
+      input.value = '';
+      sendBtn.disabled = true;
+
+      const typing = addTyping();
+
+      try {
+        const r = await fetch(`${N8N_URL}/webhook/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatInput: text })
+        });
+
+        removeTyping();
+
+        if (!r.ok) {
+          const err = await r.text();
+          addMessage(`Error: ${r.status} - ${err}. Make sure n8n is running and the workflow is active.`, 'assistant');
+        } else {
+          const data = await r.json();
+          const reply = data.output || data.chatOutput || data.message || JSON.stringify(data, null, 2);
+          addMessage(reply, 'assistant');
+        }
+      } catch (e) {
+        removeTyping();
+        addMessage(`Connection error: ${e.message}. Make sure n8n is running on port 5678.`, 'assistant');
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    checkHealth();
+    setInterval(checkHealth, 15000);
+  </script>
+</body>
+</html>
