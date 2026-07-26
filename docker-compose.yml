@@ -1,70 +1,74 @@
-version: "3.8"
-
 services:
   mysql:
     image: mysql:8.0
-    container_name: segmentation-mysql
-    ports:
-      - "3307:3306"
+    container_name: bank_mysql
+    restart: unless-stopped
+    command: --local-infile=1
     environment:
-      MYSQL_ROOT_PASSWORD: segpassword123
-      MYSQL_DATABASE: segmentation
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./dataset.csv:/docker-entrypoint-initdb.d/dataset.csv
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-psegpassword123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot123"]
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - bank_network
 
-  api:
-    build: .
-    container_name: segmentation-api
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: bank_n8n
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     depends_on:
       mysql:
         condition: service_healthy
-
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: segmentation-n8n
     ports:
       - "5678:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=segmentation2024
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=UTC
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      GENERIC_TIMEZONE: UTC
+      N8N_SECURE_COOKIE: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GROQ_API_KEY: ${GROQ_API_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./n8n-workflow.json:/home/node/workflows/segmentation-workflow.json
-    depends_on:
-      api:
-        condition: service_healthy
+      - ./entrypoint.sh:/entrypoint.sh
+      - ./workflow.json:/import/workflow.json
+    networks:
+      - bank_network
 
   frontend:
     image: nginx:alpine
-    container_name: segmentation-frontend
-    ports:
-      - "3000:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+    container_name: bank_frontend
+    restart: unless-stopped
     depends_on:
-      - api
+      - n8n
+    ports:
+      - "80:80"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - bank_network
+
+networks:
+  bank_network:
 
 volumes:
-  n8n_data:
   mysql_data:
+  n8n_data:

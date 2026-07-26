@@ -98,7 +98,6 @@
       .replace(/\n/g, '<br>');
   }
 
-  // Turns an array of row objects into an HTML table. Empty/missing -> ''.
   function buildTable(rows) {
     if (!Array.isArray(rows) || rows.length === 0) return '';
     const cols = Object.keys(rows[0]);

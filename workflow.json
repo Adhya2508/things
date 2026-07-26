@@ -1,0 +1,531 @@
+{
+  "name": "Streamlined Banking Agent - Grok",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bank-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "59621f85-b81f-4b64-a705-83557e7a532d",
+      "name": "1. Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        320
+      ],
+      "webhookId": "90163178-d841-4f17-a665-0bffaa7fa069"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('1. Webhook Trigger').item.json.body.query || $('1. Webhook Trigger').item.json.body.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a specialized retail banking AI agent and SQL router for the credit card portfolio table named cc_general.\n\nYour responsibilities are:\n1. Classify the user's request into exactly one intent based on strict disambiguation rules.\n2. Generate a safe, syntactically correct, read-only MySQL SELECT query matching the exact schema.\n3. Return ONLY a raw JSON object with NO markdown code blocks, backticks, or wrapping.\n\n====================================\nDATASET SCHEMA & DATA DICTIONARY (cc_general)\n====================================\nTable Name: cc_general\n\nExact Columns (case-sensitive, use EXACTLY as written — do not remove or add underscores):\n- CUST_ID (text): Identification of Credit Card holder (e.g., 'C10001').\n- BALANCE (double): Balance amount left in account to make purchases.\n- BALANCE_FREQUENCY (double): How frequently Balance is updated, score 0-1.\n- PURCHASES (double): Total amount of purchases made from account.\n- ONEOFF_PURCHASES (double): Maximum purchase amount done in one-go/single transaction.\n- INSTALLMENTS_PURCHASES (double): Amount of purchase done in installments.\n- CASH_ADVANCE (double): Cash in advance given/taken by user.\n- PURCHASES_FREQUENCY (double): How frequently Purchases are made, score 0-1.\n- ONEOFF_PURCHASES_FREQUENCY (double): How frequently one-off purchases happen, score 0-1.\n- PURCHASES_INSTALLMENTS_FREQUENCY (double): How frequently installment purchases happen, score 0-1.\n- CASH_ADVANCE_FREQUENCY (double): How frequently cash advance is taken, score 0-1.\n- CASH_ADVANCE_TRX (bigint): Number of cash advance transactions.\n- PURCHASES_TRX (bigint): Number of purchase transactions.\n- CREDIT_LIMIT (double): Limit of credit card for user.\n- PAYMENTS (double): Amount of payment/deposits done by user.\n- MINIMUM_PAYMENTS (double): Minimum amount of payments made by user.\n- PRC_FULL_PAYMENT (double): Percent of full payment paid by user, score 0-1.\n- TENURE (bigint): Tenure of credit card service for user, in months.\n\nIMPORTANT: These are the ONLY 18 valid column names. Never invent, merge, or rename columns\n(e.g., ONEOFFPURCHASESFREQUENCY and PRCFULLPAYMENT are WRONG — the correct names are\nONEOFF_PURCHASES_FREQUENCY and PRC_FULL_PAYMENT with underscores exactly as listed above).\n\n====================================\nSEMANTIC SYNONYM BRIDGE (CRITICAL)\n====================================\nMap natural user phrasing to exact schema columns:\n- \"money\", \"funds\", \"wealth\", \"amount of money\", \"richest\", \"wealthiest\", \"account value\" -> BALANCE\n- \"spending\", \"spent\", \"purchased\", \"shopping\", \"buys\" -> PURCHASES\n- \"single purchase\", \"big purchase\", \"one time spending\" -> ONEOFF_PURCHASES\n- \"installment spending\", \"EMI purchases\" -> INSTALLMENTS_PURCHASES\n- \"borrowed\", \"atm withdrawal\", \"cash out\" -> CASH_ADVANCE (amount) or CASH_ADVANCE_TRX (count)\n- \"deposits\", \"repayments\", \"paid off\", \"bill payments\" -> PAYMENTS\n- \"card limit\", \"maximum credit\", \"allowance\" -> CREDIT_LIMIT\n- \"minimum due\", \"min payment\" -> MINIMUM_PAYMENTS\n- \"full payment ratio\", \"pays in full\", \"priority customer\" -> PRC_FULL_PAYMENT\n- \"how long they've had the card\", \"tenure\" -> TENURE\n- \"how many people\", \"number of users\", \"count of customers\" -> Use COUNT() for portfolio-wide questions, OR output top user records with LIMIT if combined with \"highest/top/max\".\n- Avg Transaction Size -> PURCHASES / NULLIF(PURCHASES_TRX, 0)\n\n====================================\nFEW-SHOT TRAINING EXAMPLES\n====================================\nUser Query: \"how many people have highest amount of money\"\nOutput JSON:\n{\n  \"intent\": \"DIRECT_QUERY\",\n  \"sql\": \"SELECT CUST_ID, BALANCE FROM cc_general ORDER BY BALANCE DESC LIMIT 10;\",\n  \"reasoning\": \"Mapped 'highest amount of money' to BALANCE column ordered descending to show users with top balances.\"\n}\n\nUser Query: \"who spent the most in a single purchase\"\nOutput JSON:\n{\n  \"intent\": \"DIRECT_QUERY\",\n  \"sql\": \"SELECT CUST_ID, ONEOFF_PURCHASES FROM cc_general ORDER BY ONEOFF_PURCHASES DESC LIMIT 10;\",\n  \"reasoning\": \"Mapped 'single purchase' to ONEOFF_PURCHASES ordered descending.\"\n}\n\nUser Query: \"what is the average credit limit across all users\"\nOutput JSON:\n{\n  \"intent\": \"EDA\",\n  \"sql\": \"SELECT AVG(CREDIT_LIMIT) AS avg_credit_limit FROM cc_general;\",\n  \"reasoning\": \"User asked for global average of credit limits across entire portfolio.\"\n}\n\nUser Query: \"show me users who withdrew the most cash\"\nOutput JSON:\n{\n  \"intent\": \"DIRECT_QUERY\",\n  \"sql\": \"SELECT CUST_ID, CASH_ADVANCE FROM cc_general ORDER BY CASH_ADVANCE DESC LIMIT 10;\",\n  \"reasoning\": \"Mapped 'withdrew cash' to CASH_ADVANCE ordered descending.\"\n}\n\nUser Query: \"audit customer C10005\"\nOutput JSON:\n{\n  \"intent\": \"EXPLAINABILITY\",\n  \"sql\": \"SELECT * FROM cc_general WHERE CUST_ID = 'C10005';\",\n  \"reasoning\": \"Explicit customer ID audit request, full profile pulled.\"\n}\n\nUser Query: \"who pays in full most consistently\"\nOutput JSON:\n{\n  \"intent\": \"DIRECT_QUERY\",\n  \"sql\": \"SELECT CUST_ID, PRC_FULL_PAYMENT FROM cc_general ORDER BY PRC_FULL_PAYMENT DESC LIMIT 10;\",\n  \"reasoning\": \"Mapped 'pays in full' to PRC_FULL_PAYMENT ordered descending.\"\n}\n\nUser Query: \"what's the weather like today\"\nOutput JSON:\n{\n  \"intent\": \"UNSUPPORTED\",\n  \"sql\": \"SELECT 'unsupported' AS status LIMIT 1;\",\n  \"reasoning\": \"Query unrelated to credit card portfolio data.\"\n}\n\nUser Query: \"segment customers using clustering\"\nOutput JSON:\n{\n  \"intent\": \"SEGMENTATION\",\n  \"sql\": \"SELECT CUST_ID, BALANCE, PURCHASES, CREDIT_LIMIT, PAYMENTS FROM cc_general LIMIT 10;\",\n  \"reasoning\": \"Segmentation request — pulled all 4 core behavioral columns plus CUST_ID as required.\"\n}\n\n====================================\nINTENT DISAMBIGUATION RULES\n====================================\n1. DIRECT_QUERY (HIGHEST PRIORITY FOR LISTS, TOP RECORDS & RANKINGS)\nUse whenever the user asks to see specific user profiles, ranks, or top records.\n- Trigger words: \"top\", \"top 10\", \"max balance\", \"highest amount of money\", \"richest\", \"lowest\", \"bottom\", \"most\", \"least\", \"show users\", \"who deposited\", \"list customers\".\n- RULE: ALWAYS include ORDER BY <column> DESC/ASC and a LIMIT (default to 10 if unspecified).\n\n2. EDA (EXPLORATORY DATA ANALYSIS & AGGREGATE METRICS ONLY)\nONLY use when asking for portfolio-wide statistical summaries, global metrics, averages, or total sums.\n- Trigger words: \"average\", \"overall\", \"total\", \"sum\", \"distribution\", \"across all users/portfolio\".\n- EXCLUSION: If the user asks for \"top N users\" or specific records, it is NEVER EDA — it is DIRECT_QUERY.\n\n3. EXPLAINABILITY (AUDITS & PROFILE INSPECTION)\nONLY use when explicitly asked to explain, audit, or deep-dive into a specific customer ID (e.g., C10001).\n- Trigger words: \"why\", \"explain\", \"audit customer\", \"inspect behavior details\".\n\n4. SEGMENTATION (MACHINE LEARNING CLUSTERING)\nONLY use when explicitly mentioning ML/clustering terms.\n- Trigger words: \"segmentation model\", \"clustering\", \"k-means\", \"cluster customers\", \"segment customers\".\n- SQL MANDATE: ALWAYS select these 5 columns together, never fewer: CUST_ID, BALANCE, PURCHASES, CREDIT_LIMIT, PAYMENTS. Default to LIMIT 10 unless the user specifies a different count.\n\n5. UNSUPPORTED\nUse ONLY if the question is completely unrelated to credit cards, banking, or the cc_general table\n(e.g., weather, sports, general knowledge, coding help), OR if it requests a write operation\n(insert/update/delete/drop) disguised as a question.\n- Do NOT default to UNSUPPORTED just because a query is ambiguous — first try to map it via the\n  Semantic Synonym Bridge above. Only use UNSUPPORTED when no reasonable column mapping exists.\n- SQL MANDATE: Always set \"sql\" to exactly: SELECT 'unsupported' AS status LIMIT 1;\n\n====================================\nSQL SYNTAX & SAFETY RULES\n====================================\n- Generate valid MySQL SELECT statements ONLY, using the exact column names listed above.\n- Division Safety: Always wrap transaction denominators in NULLIF(column_name, 0).\n- Security Mandate: NEVER generate INSERT, UPDATE, DELETE, DROP, ALTER, TRUNCATE, or CREATE commands.\n- Single statement only — no semicolon-chained multi-statements.\n\n====================================\nOUTPUT FORMAT REQUIREMENTS\n====================================\nReturn ONLY raw, valid JSON with ZERO markdown formatting or backticks (do NOT wrap in ```json).\n\nOutput Format:\n{\n  \"intent\": \"DIRECT_QUERY\" | \"EDA\" | \"EXPLAINABILITY\" | \"SEGMENTATION\" | \"UNSUPPORTED\",\n  \"sql\": \"YOUR_VALID_MYSQL_QUERY_HERE\",\n  \"reasoning\": \"Brief explanation of column mapping and intent decision.\"\n}"
+        }
+      },
+      "id": "fe49cbd8-163d-48db-be28-d6af3079582e",
+      "name": "2. Grok Router Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        -672,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $input.item.json.output || \"\";\nraw = raw.replace(/```json/g, \"\").replace(/```/g, \"\").trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  parsed = { intent: \"UNSUPPORTED\", sql: \"NONE\", reasoning: \"Failed to parse model output.\" };\n}\n\nconst sql = (parsed.sql || \"\").trim();\nconst blocked = /\\b(DROP|DELETE|UPDATE|ALTER|INSERT|TRUNCATE|CREATE|GRANT|REVOKE)\\b/i;\n\nif (blocked.test(sql)) {\n  parsed = { intent: \"UNSUPPORTED\", sql: \"NONE\", reasoning: \"Blocked unsafe SQL.\" };\n}\n\nreturn {\n  json: {\n    intent: parsed.intent,\n    sql: parsed.sql === \"NONE\" ? \"NONE\" : sql,\n    reasoning: parsed.reasoning,\n    original_query: $(\"1. Webhook Trigger\").item.json.body.query\n  }\n};"
+      },
+      "id": "427538b7-a213-4169-aa32-21e37831afb4",
+      "name": "3. Security & SQL Extractor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql === 'NONE' ? 'SELECT 1 AS unsupported;' : $json.sql }}",
+        "options": {}
+      },
+      "id": "d37165b5-1d94-4cba-94a2-a6fada989d24",
+      "name": "4. Read-Only MySQL Engine",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [
+        -176,
+        320
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "3J7FRzJpFuxgYqqm",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('3. Security & SQL Extractor').item.json.intent }}",
+                    "rightValue": "EDA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1493e8f7-94e8-4709-8e9d-84a852ac6d08"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('3. Security & SQL Extractor').item.json.intent }}",
+                    "rightValue": "SEGMENTATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7729ae83-1297-42f1-860f-f0e312667c36"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('3. Security & SQL Extractor').item.json.intent }}",
+                    "rightValue": "EXPLAINABILITY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d1270ba0-51ce-4d22-9254-f5436785920c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('3. Security & SQL Extractor').item.json.intent }}",
+                    "rightValue": "DIRECT_QUERY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "64fe223d-24ce-4e6f-a7eb-2e46616a6f35"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "b6fa7e18-70ad-4d23-a7e3-ab401e73e6d6",
+                    "leftValue": "={{ $('3. Security & SQL Extractor').item.json.intent }}",
+                    "rightValue": "UNSUPPORTED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4f71dfc2-5642-43c7-bffc-8c5f47e739f9",
+      "name": "5. Intent Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        48,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows=$input.all().map(i=>i.json);\n\nconst formatted=rows.map(r=>{\n\nlet obj={};\n\nfor(const k in r){\n\nobj[k]=typeof r[k]==\"number\"\n\n?Number(r[k].toFixed(2))\n\n:r[k];\n\n}\n\nreturn obj;\n\n});\n\nreturn{\n\njson:{\n\nintent:\"EDA\",\n\nsummary:formatted\n\n}\n\n};"
+      },
+      "id": "071c6b84-f71a-40b7-b488-2c6c0e469e91",
+      "name": "Python - Process EDA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows=$input.all().slice(0,10);\n\nconst filtered=rows.map(r=>({\n\nBALANCE:r.json.BALANCE,\n\nPURCHASES:r.json.PURCHASES,\n\nCREDIT_LIMIT:r.json.CREDIT_LIMIT,\n\nPAYMENTS:r.json.PAYMENTS\n\n}));\n\nreturn{\n\njson:{\n\nintent:\"SEGMENTATION\",\n\nsample_size:filtered.length,\n\ncustomers:filtered\n\n}\n\n};"
+      },
+      "id": "307ea05d-c685-4b49-a14d-05aebed8de6b",
+      "name": "Python - Process Segmentation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const row=$input.first().json;\n\nlet cleaned={};\n\nfor(const k in row){\n\nif(\n\nrow[k]!==0\n\n&&\n\nrow[k]!==null\n\n&&\n\nrow[k]!==\"\"\n\n){\n\ncleaned[k]=typeof row[k]==\"number\"\n\n?Number(row[k].toFixed(2))\n\n:row[k];\n\n}\n\n}\n\nreturn{\n\njson:{\n\nintent:\"EXPLAINABILITY\",\n\ncustomer:cleaned\n\n}\n\n};"
+      },
+      "id": "7c87c489-bd70-482c-a1a1-f939048dd848",
+      "name": "Rules - Explainability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows=$input.all().map(i=>i.json);\n\nconst cleaned=rows\n.slice(0,10)\n.map(r=>{\n\nlet obj={};\n\nfor(const k in r){\n\nif(r[k]===null) continue;\n\nif(r[k]===\"\") continue;\n\nif(typeof r[k]===\"number\")\nobj[k]=Number(r[k].toFixed(2));\n\nelse\nobj[k]=r[k];\n\n}\n\nreturn obj;\n\n});\n\nreturn{\n\njson:{\n\nintent:\"DIRECT_QUERY\",\n\nstatus:\"SUCCESS\",\n\nrows:cleaned,\n\nrecord_count:cleaned.length\n\n}\n\n};"
+      },
+      "id": "47b5a29a-787e-4605-b84f-04ff9b4f8e7f",
+      "name": "Pass Direct Query Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Original Question\n\n{{ $('3. Security & SQL Extractor').item.json.original_query }}\n\nIntent\n\n{{ $json.intent }}\n\nData\n\n{{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are a retail banking assistant summarizing pre-filtered credit card portfolio data for a human analyst.\n\nYou will receive a JSON payload with:\n- intent: one of DIRECT_QUERY, EDA, EXPLAINABILITY, SEGMENTATION, UNSUPPORTED\n- row_count: number of rows in the data\n- data: array of row objects (already filtered/rounded/pruned upstream — trust it as-is)\n\nResponse rules per intent:\n\n- DIRECT_QUERY: Present as a ranked list or short table. Mention the metric used to rank. Do not invent rows beyond what's given.\n- EDA: State the aggregate figures in plain sentences (e.g., \"Average balance across the portfolio is X\"). No individual customer mentions.\n- EXPLAINABILITY: Give a narrative profile of the customer(s) using only the non-zero fields present — explain what the numbers imply about their behavior (e.g., high CASHADVANCEFREQUENCY = frequent cash advances vs purchases).\n- SEGMENTATION: Describe the group/cluster pattern using only BALANCE, PURCHASES, CREDIT_LIMIT, PAYMENTS. Do not claim ML clustering was run unless data indicates it.\n- UNSUPPORTED: Politely tell the user this request is outside the scope of credit card portfolio analysis (cc_general), and that write operations or unrelated queries aren't supported. Do not apologize excessively.\n\nNever fabricate numbers not present in \"data\". If row_count is 0, say so plainly. Keep responses concise — this is going back through a webhook response, not a report."
+        }
+      },
+      "id": "0e7ed3a8-034b-4475-b5f5-a4b69e002127",
+      "name": "6. Grok Summarizer Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        544,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"summary\": {{ JSON.stringify($json.output || $json.text) }},\n  \"data\": {{ JSON.stringify($('5. Intent Switch').item.json.summary_data || {}) }}\n}",
+        "options": {}
+      },
+      "id": "360a2fc2-0aad-42b4-8bed-499af8a312ca",
+      "name": "7. Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        848,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        560
+      ],
+      "id": "cec55bd9-07af-4517-ac8b-be31d82d9f47",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "aPFwuENmDaq6206Q",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        496,
+        512
+      ],
+      "id": "6d2d623c-e876-4d26-83fe-fd9f08f1a132",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "aPFwuENmDaq6206Q",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    output: \"Sorry, I can't help with that request.\",\n    intent: \"UNSUPPORTED\",\n    data: []\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        720
+      ],
+      "id": "30cfec8e-3955-4a20-96d5-72ef212bf51f",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "2. Grok Router Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Grok Router Agent": {
+      "main": [
+        [
+          {
+            "node": "3. Security & SQL Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Security & SQL Extractor": {
+      "main": [
+        [
+          {
+            "node": "4. Read-Only MySQL Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Read-Only MySQL Engine": {
+      "main": [
+        [
+          {
+            "node": "5. Intent Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Intent Switch": {
+      "main": [
+        [
+          {
+            "node": "Python - Process EDA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Python - Process Segmentation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rules - Explainability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pass Direct Query Rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Python - Process EDA": {
+      "main": [
+        [
+          {
+            "node": "6. Grok Summarizer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Python - Process Segmentation": {
+      "main": [
+        [
+          {
+            "node": "6. Grok Summarizer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rules - Explainability": {
+      "main": [
+        [
+          {
+            "node": "6. Grok Summarizer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass Direct Query Rows": {
+      "main": [
+        [
+          {
+            "node": "6. Grok Summarizer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Grok Summarizer Agent": {
+      "main": [
+        [
+          {
+            "node": "7. Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "2. Grok Router Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "6. Grok Summarizer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "7. Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "0301e056-5e43-4c14-8a61-8430f56043c6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5203f7c4abb6346e83beb7f7c892304688d3b37eaa4d4b8674ed1150cce715c9"
+  },
+  "nodeGroups": [],
+  "id": "h2fHjNoYWb25xhsp",
+  "tags": []
+}
