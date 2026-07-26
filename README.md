@@ -6,7 +6,7 @@
 
 **An AI-powered, intent-routed agent that performs exploratory data analysis, customer segmentation, persona generation, and explainability over a retail bank's credit card portfolio — deployed as a fully self-contained, one-command Docker stack.**
 
-[![Demo](https://img.shields.io/badge/DEMO-LIVE-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](http://YOUR-SERVER-IP/)
+[![Demo](https://img.shields.io/badge/DEMO-LIVE-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](http://3.231.86.7/)
 
 </div>
 
