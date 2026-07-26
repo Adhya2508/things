@@ -1178,8 +1178,14 @@
       overflow-y: auto;
     }
 
-    .left-panel::-webkit-scrollbar { width: 4px; }
-    .left-panel::-webkit-scrollbar-thumb { background: rgba(92,18,33,0.08); border-radius: 3px; }
+    .left-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .left-panel::-webkit-scrollbar-thumb {
+      background: rgba(92, 18, 33, 0.08);
+      border-radius: 3px;
+    }
 
     .lp-section-label {
       font-size: 0.68rem;
@@ -1262,7 +1268,9 @@
       transition: opacity 0.2s;
     }
 
-    .lp-preset-btn:hover .lp-preset-arrow { opacity: 1; }
+    .lp-preset-btn:hover .lp-preset-arrow {
+      opacity: 1;
+    }
 
     /* ─── INTENT TAG & RICH RESPONSE ─── */
     .intent-tag {
@@ -1316,7 +1324,7 @@
 
     .data-table th {
       background: linear-gradient(135deg, #2e050d, #5c1221);
-      color: rgba(255,255,255,0.85);
+      color: rgba(255, 255, 255, 0.85);
       font-size: 0.68rem;
       font-weight: 700;
       text-transform: uppercase;
@@ -1330,14 +1338,18 @@
       color: var(--text-primary);
     }
 
-    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
 
     .data-table tr:hover td {
       background: rgba(92, 18, 33, 0.02);
     }
 
     @media (max-width: 900px) {
-      .left-panel { display: none; }
+      .left-panel {
+        display: none;
+      }
     }
 
     /* Mobile */
@@ -1410,10 +1422,6 @@
       </div>
 
       <div class="header-right">
-        <div class="header-badge">
-          <span class="status-dot"></span>
-          <span>Agent Online</span>
-        </div>
         <button class="history-toggle-btn" id="historyToggleBtn" onclick="toggleSidebar()" title="Toggle History Panel">
           <svg viewBox="0 0 24 24">
             <path d="M13 3a9 9 0 1 0 0 18A9 9 0 0 0 13 3zM11 17v-6l-4 2.18V11l4-2.18V5h2v11h-2z" />
@@ -1431,11 +1439,13 @@
         <div>
           <div class="lp-section-label">Quick Presets</div>
           <div class="lp-preset-list">
-            <button class="lp-preset-btn" id="lpPreset1" onclick="useQuickPrompt('give me top 10 users with max balance')">
+            <button class="lp-preset-btn" id="lpPreset1"
+              onclick="useQuickPrompt('give me top 10 users with max balance')">
               <span>Top Balances</span>
               <span class="lp-preset-arrow">→</span>
             </button>
-            <button class="lp-preset-btn" id="lpPreset2" onclick="useQuickPrompt('what is the average credit limit across all users')">
+            <button class="lp-preset-btn" id="lpPreset2"
+              onclick="useQuickPrompt('what is the average credit limit across all users')">
               <span>Portfolio Averages</span>
               <span class="lp-preset-arrow">→</span>
             </button>
@@ -1443,11 +1453,13 @@
               <span>Audit Customer C10001</span>
               <span class="lp-preset-arrow">→</span>
             </button>
-            <button class="lp-preset-btn" id="lpPreset4" onclick="useQuickPrompt('show overdue accounts with balance above 50000')">
+            <button class="lp-preset-btn" id="lpPreset4"
+              onclick="useQuickPrompt('show overdue accounts with balance above 50000')">
               <span>Overdue High-Balance</span>
               <span class="lp-preset-arrow">→</span>
             </button>
-            <button class="lp-preset-btn" id="lpPreset5" onclick="useQuickPrompt('segment customers by credit score tier')">
+            <button class="lp-preset-btn" id="lpPreset5"
+              onclick="useQuickPrompt('segment customers by credit score tier')">
               <span>Credit Score Tiers</span>
               <span class="lp-preset-arrow">→</span>
             </button>
