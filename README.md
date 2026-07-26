@@ -80,10 +80,10 @@ The naive approach — dump the full SQL result straight into the summarizer —
 
 | Intent | Problem with Raw Output | Filter Applied |
 |--------|------------------------|----------------|
-| **DIRECT_QUERY** | `SELECT *` style results return 10 rows × 18 columns — thousands of tokens of mostly irrelevant fields | Hard-capped to 10 rows, pruned to only `CUST_ID` + the relevant metric column(s), floats rounded to 2 decimals |
+| **DIRECT_QUERY** | `SELECT *` style results return 10 rows × 18 columns — thousands of tokens of mostly irrelevant fields | Capped to dynamic(required basis) number of rows, pruned to only `CUST_ID` + the relevant metric column(s), floats rounded to 2 decimals |
 | **EDA** | Aggregates come back with long float precision (`1564.474829101...`) | All rows kept (usually 1–3 aggregate rows anyway), every number rounded to 2 decimals — payload is typically under 100 tokens |
-| **EXPLAINABILITY** | A full customer profile pull returns all 18 columns, many zero/null | Capped to 1–2 rows, every zero/null/empty field stripped so the model only reads fields with actual signal |
-| **SEGMENTATION** | Arbitrary column selection risks single-dimension reasoning | Capped to 10 rows, pruned to exactly the 5 core behavioral columns, floats rounded |
+| **EXPLAINABILITY** | A full customer profile pull returns all 18 columns, many zero/null | Capped to dynamic number of rows, every zero/null/empty field stripped so the model only reads fields with actual signal |
+| **SEGMENTATION** | Arbitrary column selection risks single-dimension reasoning | Capped to dynamic number of  rows, pruned to exactly the 5 core behavioral columns, floats rounded |
 | **UNSUPPORTED** | N/A — no data needed at all | Zero SQL reasoning wasted on the summarizer; a static response is returned directly, skipping the LLM call completely |
 
 **Net effect:** every query pays only for the tokens its answer actually needs. A ranking question never drags along 14 irrelevant columns; a portfolio-average question never repeats itself 50 times; an unsupported question costs nothing beyond the router's classification call. This is also what keeps response latency low and predictable — the summarizer is never reasoning over more data than the question calls for.
