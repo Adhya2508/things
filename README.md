@@ -37,24 +37,11 @@ A retail bank offers savings accounts, credit cards, personal loans, and investm
 
 ## Architecture
 
-```
-User (browser)
-      │
-      ▼
- [nginx:80] ── serves index.html, reverse-proxies /webhook/* to n8n
-      │
-      ▼
- [n8n:5678] ── the agent pipeline (see below)
-      │
-      ▼
- [MySQL] ── cc_general table (credit card portfolio dataset)
-```
-
 <p align="center">
   <img src="workflow.png" alt="TRESOR — n8n Agent Pipeline" width="800"/>
   <br/>
-  <em>Fig 1. The complete n8n workflow — route, execute, filter, summarize.</em>
 </p>
+
 
 ### The Pipeline, Node by Node
 
