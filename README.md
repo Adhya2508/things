@@ -26,6 +26,13 @@ A retail bank offers savings accounts, credit cards, personal loans, and investm
 
 **Minimum functional requirements covered by this system:** natural-language chat interface, dynamic EDA, rule-based segmentation, explainability (why a customer belongs to a segment), and human-readable summarization — all driven by a single conversational entry point rather than separate dashboards/tools.
 
+## 📊 Dataset Information
+
+* **Source:** [Kaggle - Credit Card Dataset for Clustering](https://www.kaggle.com/datasets/arjunbhasin2013/ccdata/data)
+* **File Name:** `CC GENERAL.csv`
+* **Size:** ~9,000 active credit card holders over a 6-month evaluation period.
+* **Features:** 18 behavioral variables per customer.
+
 ---
 
 ## Architecture
