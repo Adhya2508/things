@@ -200,6 +200,4 @@ Re-running `docker compose up -d` after the first boot is safe — both `entrypo
 
 <div align="center">
 
-**Built for the hackathon. Designed to scale.**
-
 </div>
